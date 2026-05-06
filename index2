@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<!-- Playables SDK -->
+<script>// Playables SDK v1.0.0
+// Game lifecycle bridge: rAF-based game-ready detection + event communication
+(function() {
+  'use strict';
+
+  // Idempotency: skip if already initialized (e.g., server-side injection
+  // followed by client-side inject-javascript via the Bloks webview component).
+  if (window.playablesSDK) return;
+
+  var HANDLER_NAME = 'playablesGameEventHandler';
+  var ANDROID_BRIDGE_NAME = '_MetaPlayablesBridge';
+  var RAF_FRAME_THRESHOLD = 3;
+
+  var gameReadySent = false;
+  var firstInteractionSent = false;
+  var errorSent = false;
+  var frameCount = 0;
+  var originalRAF = window.requestAnimationFrame;
+
+  // --- Transport Layer ---
+
+  function hasIOSBridge() {
+    return !!(window.webkit &&
+              window.webkit.messageHandlers &&
+              window.webkit.messageHandlers[HANDLER_NAME]);
+  }
+
+  function hasAndroidBridge() {
+    return !!(window[ANDROID_BRIDGE_NAME] &&
+              typeof window[ANDROID_BRIDGE_NAME].postEvent === 'function');
+  }
+
+  function isInIframe() {
+    return !!(window.parent && window.parent !== window);
+  }
+
+  function sendEvent(eventName, payload) {
+    var message = {
+      type: eventName,
+      payload: payload || {},
+      timestamp: Date.now()
+    };
+
+    if (hasIOSBridge()) {
+      try {
+        window.webkit.messageHandlers[HANDLER_NAME].postMessage(message);
+      } catch (e) { /* ignore */ }
+      return;
+    }
+
+    if (hasAndroidBridge()) {
+    try {
+      var p = payload || {};
+      p.__secureToken = window.__fbAndroidBridgeAuthToken || '';
+      p.timestamp = message.timestamp;
+      window[ANDROID_BRIDGE_NAME].postEvent(
+        eventName,
+        JSON.stringify(p)
+      );
+    } catch (e) { /* ignore */ }
+    return;
+  }
+
+    if (isInIframe()) {
+      try {
+        window.parent.postMessage(message, '*');
+      } catch (e) { /* ignore */ }
+      return;
+    }
+  }
+
+  // --- rAF Game-Ready Detection ---
+
+  function onFrame() {
+    if (gameReadySent) return;
+
+    frameCount++;
+    if (frameCount >= RAF_FRAME_THRESHOLD) {
+      gameReadySent = true;
+      sendEvent('game_ready', {
+        frame_count: frameCount,
+        detected_at: Date.now()
+      });
+      return;
+    }
+
+    originalRAF.call(window, onFrame);
+  }
+
+  if (originalRAF) {
+    window.requestAnimationFrame = function(callback) {
+      if (!gameReadySent) {
+        return originalRAF.call(window, function(timestamp) {
+          frameCount++;
+          if (frameCount >= RAF_FRAME_THRESHOLD && !gameReadySent) {
+            gameReadySent = true;
+            sendEvent('game_ready', {
+              frame_count: frameCount,
+              detected_at: Date.now()
+            });
+          }
+          callback(timestamp);
+        });
+      }
+      return originalRAF.call(window, callback);
+    };
+  }
+
+  // --- First User Interaction Detection ---
+
+  function setupFirstInteractionDetection() {
+    var events = ['touchstart', 'mousedown', 'keydown'];
+
+    function onFirstInteraction() {
+      if (firstInteractionSent) return;
+      firstInteractionSent = true;
+      sendEvent('user_interaction_start', null);
+
+      for (var i = 0; i < events.length; i++) {
+        document.removeEventListener(events[i], onFirstInteraction, true);
+      }
+    }
+
+    for (var i = 0; i < events.length; i++) {
+      document.addEventListener(events[i], onFirstInteraction, true);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupFirstInteractionDetection);
+  } else {
+    setupFirstInteractionDetection();
+  }
+
+  // --- Auto Error Capture ---
+
+  window.addEventListener('error', function(event) {
+    if (errorSent) return;
+    errorSent = true;
+    sendEvent('error', {
+      message: event.message || 'Unknown error',
+      source: event.filename || '',
+      lineno: event.lineno || 0,
+      colno: event.colno || 0,
+      auto_captured: true
+    });
+  });
+
+  window.addEventListener('unhandledrejection', function(event) {
+    if (errorSent) return;
+    errorSent = true;
+    var reason = event.reason;
+    sendEvent('error', {
+      message: (reason instanceof Error) ? reason.message : String(reason),
+      type: 'unhandled_promise_rejection',
+      auto_captured: true
+    });
+  });
+
+  // --- Public API ---
+
+  window.playablesSDK = {
+    complete: function(score) {
+      sendEvent('game_ended', {
+        score: score,
+        completed: true
+      });
+    },
+
+    error: function(message) {
+      if (errorSent) return;
+      errorSent = true;
+      sendEvent('error', {
+        message: message || 'Unknown error',
+        auto_captured: false
+      });
+    },
+
+    sendEvent: function(eventName, payload) {
+      if (!eventName || typeof eventName !== 'string') return;
+      sendEvent(eventName, payload);
+    }
+  };
+
+  // Kick off rAF detection in case no game code calls rAF immediately
+  if (originalRAF) {
+    originalRAF.call(window, onFrame);
+  }
+})();</script>
+<script>window.Intl=window.Intl||{};Intl.t=function(s){return(Intl._locale&&Intl._locale[s])||s;};</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Station Manager Pro — Marjane Tanger Madina</title>
+<meta name="theme-color" content="#1B4B9B">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#EEF3FB; --bg2:#D9E6F7; --surface:#FFFFFF; --surface2:#E4EDF9;
+  --border:#B8CEED; --border2:#8AAAD8; --accent:#1B4B9B; --accent2:#0F2E6B;
+  --green:#1A7A3C; --amber:#F5C400; --red:#C0392B; --purple:#5B2D8E;
+  --text:#0D1F3C; --text2:#2D4A7A; --text3:#5A78AC;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{position:sticky;top:0;z-index:200;background:rgba(27,75,155,.97);backdrop-filter:blur(20px);border-bottom:1px solid rgba(245,196,0,.3);padding:0 20px;height:62px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:rgba(245,196,0,.2);border:1px solid rgba(245,196,0,.4);border-radius:9px;display:flex;align-items:center;justify-content:center}
+.logo-text{font-size:15px;font-weight:700;color:#fff}
+.logo-sub{font-size:10px;color:rgba(245,196,0,.9);font-family:'Space Mono',monospace}
+.hdr-right{display:flex;align-items:center;gap:10px}
+.hdr-badge{background:rgba(255,255,255,.15);border:1px solid rgba(245,196,0,.4);border-radius:20px;padding:5px 12px;font-size:11px;font-family:'Space Mono',monospace;color:#fff}
+.btn-logout{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 14px;border-radius:8px;font-size:12px;cursor:pointer}
+.btn-logout:hover{border-color:var(--amber);color:var(--amber)}
+.container{max-width:1480px;margin:0 auto;padding:16px 20px}
+#login{max-width:420px;margin:60px auto;background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:32px;box-shadow:0 20px 60px rgba(27,75,155,.15);border-top:4px solid var(--amber)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500}
+.field input{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:10px}
+.login-err{display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:8px;padding:10px;font-size:13px;margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-full{width:100%;justify-content:center;padding:13px}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-amber{background:var(--amber);color:#0D1F3C}
+.btn-save{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;width:100%;justify-content:center;padding:14px;font-size:14px;border-radius:12px;margin-top:16px}
+.toast{position:fixed;bottom:24px;right:24px;z-index:9999;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;animation:slideIn .3s ease,fadeOut .3s ease 2.7s forwards}
+.toast-ok{background:#1A7A3C;color:#fff}
+.toast-err{background:var(--red);color:#fff}
+@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes fadeOut{to{opacity:0;transform:translateX(20px)}}
+.tab-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:5px;display:flex;gap:4px;margin-bottom:18px;flex-wrap:wrap}
+.tab-btn{flex:1;min-width:100px;background:transparent;color:var(--text2);border:none;padding:9px 12px;border-radius:9px;font-weight:600;font-size:12px;cursor:pointer}
+.tab-btn.active{background:var(--accent);color:#fff}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;position:relative}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kc,var(--amber));border-radius:14px 14px 0 0}
+.kpi-card.green{--kc:var(--green)}.kpi-card.amber{--kc:var(--amber)}.kpi-card.purple{--kc:var(--purple)}
+.kpi-label{font-size:11px;color:var(--text2);font-weight:500;margin-bottom:5px}
+.kpi-value{font-size:22px;font-weight:700;font-family:'Space Mono',monospace;color:var(--kc,var(--accent));line-height:1}
+.kpi-sub{font-size:10px;color:var(--text3);margin-top:4px}
+.date-bar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.date-bar input[type=date]{background:var(--bg2);border:1px solid var(--border2);padding:8px 12px;border-radius:9px}
+.export-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.export-bar .btn{flex:1;min-width:160px;justify-content:center}
+.pump-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:12px;margin-bottom:18px}
+.pump-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.pump-card.missing{border:2px solid var(--red);background:#FEF2F2}
+.pump-card.complete{border:1px solid var(--green)}
+.pump-card-header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-bottom:1px solid var(--border)}
+.pump-card-header.gasoil{border-top:3px solid var(--accent)}
+.pump-card-header.ssp{border-top:2px solid var(--green)}
+.pump-card-header.premium{border-top:2px solid var(--purple)}
+.pump-title{font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px}
+.fuel-dot{width:7px;height:7px;border-radius:50%}
+.fuel-dot.gasoil{background:var(--accent)}
+.fuel-dot.ssp{background:var(--green)}
+.fuel-dot.premium{background:var(--purple)}
+.status-badge{font-size:10px;padding:3px 8px;border-radius:20px}
+.status-badge.missing{background:var(--red);color:#fff}
+.status-badge.complete{background:var(--green);color:#fff}
+.chip{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:10px}
+.pump-body{padding:12px 14px}
+.debut-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;background:var(--bg2);padding:10px;border-radius:8px}
+.debut-box{text-align:center}
+.debut-label{font-size:10px;color:var(--text3)}
+.debut-value{font-size:14px;font-weight:700;font-family:'Space Mono',monospace;color:var(--accent)}
+.compteur-card{border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:12px}
+.compteur-card.elec{border-left:3px solid var(--accent)}
+.compteur-card.mec{border-left:3px solid var(--purple)}
+.compteur-title{font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.compteur-title.elec{color:var(--accent)}
+.compteur-title.mec{color:var(--purple)}
+.input-row{display:flex;gap:8px;margin-bottom:6px}
+.input-row label{font-size:11px;color:var(--text2);width:70px;flex-shrink:0}
+.input-row input{flex:1;background:var(--bg2);border:1px solid var(--border2);padding:8px 10px;border-radius:8px;font-family:'Space Mono',monospace;font-size:13px}
+.input-row input.error{border-color:var(--red);background:#FDF2F1}
+.input-row input.valid{border-color:var(--green);background:#F0FAF4}
+.ecart-libre-row{background:rgba(245,196,0,.1);border:1px solid var(--amber);border-radius:8px;padding:10px;margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ecart-libre-row label{font-size:12px;font-weight:600;color:var(--amber)}
+.ecart-libre-row input{flex:1;min-width:150px;background:var(--bg2);border:1px solid var(--border2);padding:8px 12px;border-radius:8px;font-family:'Space Mono',monospace}
+.pump-results{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+.res-box{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:6px 8px;text-align:center}
+.res-label{font-size:8px;color:var(--text3);text-transform:uppercase}
+.res-value{font-size:12px;font-weight:700;font-family:'Space Mono',monospace}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
+.card-title{font-size:14px;font-weight:700;margin-bottom:14px}
+.dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center}
+.dash-card .big{font-size:24px;font-weight:700;font-family:'Space Mono',monospace;margin:6px 0 4px}
+.history-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.settings-section{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px}
+.fuel-label{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;color:#fff}
+.fuel-label.gasoil{background:var(--accent)}.fuel-label.ssp{background:var(--green)}.fuel-label.premium{background:var(--purple)}
+.init-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.init-item{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:12px}
+.init-item label{font-size:11px;color:var(--text2);margin-bottom:6px;display:block}
+.init-row{display:flex;gap:8px;margin-top:6px}
+.init-row input{flex:1;background:var(--surface);border:1px solid var(--border2);padding:7px 8px;border-radius:7px;font-family:'Space Mono',monospace;font-size:12px}
+.prix-row{display:flex;gap:8px;flex-wrap:wrap}
+.prix-row input{flex:1;min-width:120px;background:var(--bg2);border:1px solid var(--border2);padding:9px;border-radius:9px}
+@media(max-width:768px){.pump-grid{grid-template-columns:1fr}.kpi-strip{grid-template-columns:1fr 1fr}.export-bar{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-icon">⛽</div><div><div class="logo-text">Station Manager Pro</div><div class="logo-sub">MARJANE TANGER MADINA</div></div></div>
+  <div class="hdr-right" id="hdrRight" style="display:none">
+    <div class="hdr-badge" id="hdrDate">--/--/----</div>
+    <div class="hdr-badge" id="hdrUser">⚡ Agent</div>
+    <button class="btn-logout" onclick="doLogout()">Déconnexion</button>
+  </div>
+</header>
+
+<div class="container">
+  <div id="login">
+    <div style="text-align:center;margin-bottom:24px"><h2>Station Manager Pro</h2><p>Marjane Tanger Madina</p></div>
+    <div class="login-err" id="loginErr"></div>
+    <div class="field"><label>Email</label><input type="email" id="email" placeholder="agent@station.ma"></div>
+    <div class="field"><label>Mot de passe</label><input type="password" id="pass" placeholder="••••••••"></div>
+    <button class="btn btn-primary btn-full" onclick="doLogin()">Se connecter</button>
+  </div>
+
+  <div id="app" style="display:none">
+    <div class="kpi-strip">
+      <div class="kpi-card"><div class="kpi-label">📊 Volume Élec</div><div class="kpi-value" id="kpiVolElec">0 L</div></div>
+      <div class="kpi-card green"><div class="kpi-label">📊 Volume Méc</div><div class="kpi-value" id="kpiVolMec">0 L</div></div>
+      <div class="kpi-card amber"><div class="kpi-label">💰 CA session</div><div class="kpi-value" id="kpiCA">0 DH</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">✅ Saisis</div><div class="kpi-value" id="kpiNb">0 / 32</div></div>
+    </div>
+
+    <div class="tab-wrap">
+      <button class="tab-btn active" onclick="switchTab('pumps',this)">⛽ Distributeurs</button>
+      <button class="tab-btn" onclick="switchTab('dashboard',this)">📊 Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('settings',this)">⚙️ Paramètres</button>
+    </div>
+
+    <div id="tab-pumps" class="tab-panel active">
+      <div class="date-bar">
+        <div><label>📅 Date du relevé</label><input type="date" id="releveDate" onchange="updateHdrDate()"></div>
+        <div style="font-size:11px;">ℹ️ Les distributeurs non saisis apparaissent en rouge</div>
+      </div>
+      <div class="export-bar">
+        <button class="btn btn-green" onclick="exportToExcel()">📊 Export Excel complet</button>
+        <button class="btn btn-red" onclick="exportToPDF()">📄 Export PDF (Rapport)</button>
+      </div>
+      <div class="pump-grid" id="pumpsGrid"></div>
+      <button class="btn btn-save" onclick="saveCompleteReleve()">💾 Enregistrer la journée (même avec des non-saisis)</button>
+    </div>
+
+    <div id="tab-dashboard" class="tab-panel">
+      <div class="card"><div class="card-title">📊 Tableau de bord mensuel</div><div id="detailDashboard"></div></div>
+      <div class="card"><div class="card-title">💰 Historique des relevés</div><div id="historyList"></div></div>
+    </div>
+
+    <div id="tab-settings" class="tab-panel">
+      <div class="card"><div class="card-title">💰 Prix carburants</div>
+        <div class="settings-section"><h4>Gasoil</h4><div class="prix-row"><input type="number" id="prixGasoil" step="0.01" placeholder="DH/L"><input type="date" id="dateGasoil"><button class="btn btn-primary" onclick="ajouterPrix('Gasoil')">Appliquer</button></div></div>
+        <div class="settings-section"><h4>SSP</h4><div class="prix-row"><input type="number" id="prixSSP" step="0.01" placeholder="DH/L"><input type="date" id="dateSSP"><button class="btn btn-green" onclick="ajouterPrix('SSP')">Appliquer</button></div></div>
+        <div class="settings-section"><h4>Premium</h4><div class="prix-row"><input type="number" id="prixPremium" step="0.01" placeholder="DH/L"><input type="date" id="datePremium"><button class="btn btn-amber" onclick="ajouterPrix('Premium')">Appliquer</button></div></div>
+      </div>
+      <div class="card"><div class="card-title">📟 Index DÉBUT initiaux (Élec + Méc)</div><div id="initialStocksGrid"></div><button class="btn btn-save" id="saveInitialStocksBtn">💾 Sauvegarder les index</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDTXysu_TtIrTrv-uUocRGRDSnG3cO7fto",
+  authDomain: "station-gasoil.firebaseapp.com",
+  projectId: "station-gasoil",
+  storageBucket: "station-gasoil.firebasestorage.app",
+  messagingSenderId: "722427784195",
+  appId: "1:722427784195:web:6e126639875b3f7cd0f236"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// 32 distributeurs
+const DISTRIBUTEURS = [];
+for (let i = 1; i <= 32; i++) {
+  let fuel = "Gasoil";
+  if ([3,7,11,15,19,23,31].includes(i)) fuel = "SSP";
+  if ([4,8,12,16,20,24,32].includes(i)) fuel = "SSP";
+  if ([27,28].includes(i)) fuel = "Premium";
+  const ligne = Math.ceil(i / 8);
+  const face = (i % 2 === 0) ? "B" : "A";
+  DISTRIBUTEURS.push({ id: i, nom: `Pompe N°${i}`, carburant: fuel, ligne: `Ligne ${ligne}`, face });
+}
+
+let debutIndex = { elec: {}, mec: {} };
+let prixActuels = { Gasoil: 0, Premium: 0, SSP: 0 };
+let sessionData = {};
+
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmt(n) { return Number(n || 0).toLocaleString('fr-MA', { maximumFractionDigits: 2 }); }
+function fmtL(n) { return fmt(n) + ' L'; }
+function fmtDH(n) { return fmt(n) + ' DH'; }
+function toast(msg, isErr = false) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (isErr ? 'toast-err' : 'toast-ok');
+  t.innerHTML = (isErr ? '⚠ ' : '✓ ') + msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+function updateHdrDate() { document.getElementById('hdrDate').textContent = (document.getElementById('releveDate')?.value || today()).split('-').reverse().join('/'); }
+
+// LOGIN
+window.doLogin = async function() {
+  const errEl = document.getElementById('loginErr');
+  const email = document.getElementById('email').value.trim();
+  const pass = document.getElementById('pass').value;
+  if (!email || !pass) { errEl.style.display = 'block'; errEl.textContent = 'Veuillez remplir tous les champs'; return; }
+  try { await signInWithEmailAndPassword(auth, email, pass); } 
+  catch(e) { errEl.style.display = 'block'; errEl.textContent = 'Email ou mot de passe incorrect'; }
+};
+window.doLogout = async function() { await signOut(auth); };
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('hdrRight').style.display = 'flex';
+    document.getElementById('hdrUser').textContent = '👤 ' + (user.email?.split('@')[0] || 'Agent');
+    document.getElementById('releveDate').value = today();
+    updateHdrDate();
+    await loadInitialStocks();
+    await loadPrix();
+    await loadHistory();
+    buildPumpsUI();
+  } else {
+    document.getElementById('login').style.display = 'block';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('hdrRight').style.display = 'none';
+  }
+});
+
+// PRIX
+async function loadPrix() {
+  try {
+    const snap = await getDocs(query(collection(db, "prix_carburants"), orderBy("dateApplication", "desc")));
+    const now = new Date();
+    const temp = { Gasoil: 0, Premium: 0, SSP: 0 };
+    snap.forEach(d => { const data = d.data(); if (new Date(data.dateApplication) <= now && temp[data.carburant] === 0) temp[data.carburant] = data.prix; });
+    prixActuels = temp;
+  } catch(e) {}
+}
+window.ajouterPrix = async function(carburant) {
+  const inputId = { Gasoil: 'prixGasoil', SSP: 'prixSSP', Premium: 'prixPremium' }[carburant];
+  const dateId = { Gasoil: 'dateGasoil', SSP: 'dateSSP', Premium: 'datePremium' }[carburant];
+  const prix = parseFloat(document.getElementById(inputId)?.value);
+  const dateApp = document.getElementById(dateId)?.value;
+  if (!prix || prix <= 0) { toast('Prix invalide', true); return; }
+  if (!dateApp) { toast('Date requise', true); return; }
+  await addDoc(collection(db, "prix_carburants"), { carburant, prix, dateApplication: dateApp });
+  await loadPrix();
+  toast(`Prix ${carburant} : ${prix} DH/L`);
+};
+
+// INDEX INITIAUX
+async function loadInitialStocks() {
+  try {
+    const snap = await getDoc(doc(db, "config", "initialStocksV2"));
+    if (snap.exists()) {
+      const data = snap.data();
+      debutIndex.elec = data.elec || {};
+      debutIndex.mec = data.mec || {};
+    }
+  } catch(e) {}
+  DISTRIBUTEURS.forEach(p => {
+    if (debutIndex.elec[p.id] === undefined) debutIndex.elec[p.id] = 0;
+    if (debutIndex.mec[p.id] === undefined) debutIndex.mec[p.id] = 0;
+  });
+}
+window.saveInitialStocks = async function() {
+  DISTRIBUTEURS.forEach(p => {
+    debutIndex.elec[p.id] = parseFloat(document.getElementById(`init_elec_${p.id}`)?.value) || 0;
+    debutIndex.mec[p.id] = parseFloat(document.getElementById(`init_mec_${p.id}`)?.value) || 0;
+  });
+  await setDoc(doc(db, "config", "initialStocksV2"), { elec: debutIndex.elec, mec: debutIndex.mec });
+  toast('Index initiaux sauvegardés');
+  buildPumpsUI();
+};
+function buildInitialStocksUI() {
+  const c = document.getElementById('initialStocksGrid');
+  if (!c) return;
+  let html = '<div class="init-grid">';
+  DISTRIBUTEURS.forEach(p => {
+    const cls = p.carburant.toLowerCase();
+    html += `<div class="init-item"><label><span class="fuel-label ${cls}">${p.carburant}</span> ${p.nom} — ${p.ligne} F.${p.face}</label>
+      <div class="init-row"><span style="font-size:11px;width:45px">Élec</span><input type="number" id="init_elec_${p.id}" value="${debutIndex.elec[p.id] || 0}" step="1"></div>
+      <div class="init-row"><span style="font-size:11px;width:45px">Méc</span><input type="number" id="init_mec_${p.id}" value="${debutIndex.mec[p.id] || 0}" step="1"></div>
+    </div>`;
+  });
+  html += '</div>';
+  c.innerHTML = html;
+  document.getElementById('saveInitialStocksBtn').onclick = () => window.saveInitialStocks();
+}
+
+// CONSTRUCTION UI
+function buildPumpsUI() {
+  const grid = document.getElementById('pumpsGrid');
+  if (!grid) return;
+  let html = '';
+  DISTRIBUTEURS.forEach(p => {
+    const saved = sessionData[p.id] || {};
+    const hasData = (saved.finElec !== undefined && saved.finElec !== '') || (saved.finMec !== undefined && saved.finMec !== '') || (saved.ecart && saved.ecart !== '');
+    const cls = p.carburant.toLowerCase();
+    const cardClass = hasData ? 'complete' : 'missing';
+    html += `
+    <div class="pump-card ${cardClass}">
+      <div class="pump-card-header ${cls}">
+        <div class="pump-title"><div class="fuel-dot ${cls}"></div>${p.nom}</div>
+        <div><span class="status-badge ${hasData ? 'complete' : 'missing'}">${hasData ? '✓ Saisi' : '⚠ Non saisi'}</span></div>
+        <div class="pump-meta"><span class="chip">${p.carburant}</span><span class="chip">${p.ligne}</span><span class="chip">F.${p.face}</span></div>
+      </div>
+      <div class="pump-body">
+        <div class="debut-row">
+          <div class="debut-box"><div class="debut-label">🔵 DÉBUT Élec</div><div class="debut-value">${(debutIndex.elec[p.id] || 0).toLocaleString('fr-MA')} L</div></div>
+          <div class="debut-box"><div class="debut-label">🟣 DÉBUT Méc</div><div class="debut-value">${(debutIndex.mec[p.id] || 0).toLocaleString('fr-MA')} L</div></div>
+        </div>
+        <div class="compteur-card elec">
+          <div class="compteur-title elec">🔵 Compteur Électronique</div>
+          <div class="input-row"><label>Index FIN</label><input type="number" id="fin_elec_${p.id}" placeholder="Index FIN" step="1" value="${saved.finElec || ''}" oninput="calculateVolume(${p.id})"></div>
+        </div>
+        <div class="compteur-card mec">
+          <div class="compteur-title mec">🟣 Compteur Mécanique</div>
+          <div class="input-row"><label>Index FIN</label><input type="number" id="fin_mec_${p.id}" placeholder="Index FIN" step="1" value="${saved.finMec || ''}" oninput="calculateVolume(${p.id})"></div>
+        </div>
+        <div class="ecart-libre-row">
+          <label>📝 Écart observé</label>
+          <input type="text" id="ecart_${p.id}" placeholder="Saisir l'écart..." value="${saved.ecart || ''}" oninput="calculateVolume(${p.id})">
+        </div>
+        <div class="pump-results">
+          <div class="res-box"><div class="res-label">Volume Élec</div><div class="res-value" id="vol_elec_${p.id}">—</div></div>
+          <div class="res-box"><div class="res-label">Volume Méc</div><div class="res-value" id="vol_mec_${p.id}">—</div></div>
+          <div class="res-box"><div class="res-label">Valeur (DH)</div><div class="res-value" id="vente_${p.id}">—</div></div>
+        </div>
+      </div>
+    </div>`;
+  });
+  grid.innerHTML = html;
+  DISTRIBUTEURS.forEach(p => calculateVolume(p.id));
+}
+
+// CALCUL VOLUME
+window.calculateVolume = function(pumpId) {
+  const pompe = DISTRIBUTEURS.find(p => p.id === pumpId);
+  if (!pompe) return;
+  const debutElec = debutIndex.elec[pumpId] || 0;
+  const debutMec = debutIndex.mec[pumpId] || 0;
+  const finElecStr = document.getElementById(`fin_elec_${pumpId}`)?.value.trim();
+  const finMecStr = document.getElementById(`fin_mec_${pumpId}`)?.value.trim();
+  const ecartStr = document.getElementById(`ecart_${pumpId}`)?.value.trim() || '';
+  
+  let finElec = null, finMec = null, volElec = 0, volMec = 0, ca = 0;
+  
+  const inputElec = document.getElementById(`fin_elec_${pumpId}`);
+  const inputMec = document.getElementById(`fin_mec_${pumpId}`);
+  
+  if (finElecStr !== '') {
+    finElec = parseFloat(finElecStr);
+    if (!isNaN(finElec) && finElec >= debutElec) { inputElec.classList.add('valid'); inputElec.classList.remove('error'); volElec = finElec - debutElec; }
+    else if (!isNaN(finElec) && finElec < debutElec) { inputElec.classList.add('error'); inputElec.classList.remove('valid'); }
+    else { inputElec.classList.add('error'); inputElec.classList.remove('valid'); }
+  } else { inputElec?.classList.remove('error', 'valid'); }
+  
+  if (finMecStr !== '') {
+    finMec = parseFloat(finMecStr);
+    if (!isNaN(finMec) && finMec >= debutMec) { inputMec.classList.add('valid'); inputMec.classList.remove('error'); volMec = finMec - debutMec; }
+    else if (!isNaN(finMec) && finMec < debutMec) { inputMec.classList.add('error'); inputMec.classList.remove('valid'); }
+    else { inputMec.classList.add('error'); inputMec.classList.remove('valid'); }
+  } else { inputMec?.classList.remove('error', 'valid'); }
+  
+  const prix = prixActuels[pompe.carburant] || 0;
+  const volumeCA = volElec > 0 ? volElec : volMec;
+  ca = volumeCA * prix;
+  
+  document.getElementById(`vol_elec_${pumpId}`).textContent = finElec !== null ? fmtL(volElec) : '—';
+  document.getElementById(`vol_mec_${pumpId}`).textContent = finMec !== null ? fmtL(volMec) : '—';
+  document.getElementById(`vente_${pumpId}`).textContent = (finElec !== null || finMec !== null) ? fmtDH(ca) : '—';
+  
+  if (finElec !== null || finMec !== null || ecartStr !== '') {
+    sessionData[pumpId] = { finElec, finMec, ecart: ecartStr, volElec, volMec, ca, prix, carburant: pompe.carburant, nom: pompe.nom, ligne: pompe.ligne, face: pompe.face };
+  } else {
+    delete sessionData[pumpId];
+  }
+  updateKPIs();
+  updateCardStatus(pumpId);
+};
+
+function updateKPIs() {
+  let totalVolElec = 0, totalVolMec = 0, totalCA = 0, nb = Object.keys(sessionData).length;
+  Object.values(sessionData).forEach(d => { totalVolElec += d.volElec || 0; totalVolMec += d.volMec || 0; totalCA += d.ca || 0; });
+  document.getElementById('kpiVolElec').textContent = fmtL(totalVolElec);
+  document.getElementById('kpiVolMec').textContent = fmtL(totalVolMec);
+  document.getElementById('kpiCA').textContent = fmtDH(totalCA);
+  document.getElementById('kpiNb').textContent = `${nb} / 32`;
+}
+
+function updateCardStatus(pumpId) {
+  const card = document.querySelector(`.pump-card:has(#fin_elec_${pumpId})`);
+  const data = sessionData[pumpId];
+  const hasData = data && (data.finElec !== null || data.finMec !== null || (data.ecart && data.ecart !== ''));
+  if (card) {
+    card.classList.remove('complete', 'missing');
+    card.classList.add(hasData ? 'complete' : 'missing');
+    const badge = card.querySelector('.status-badge');
+    if (badge) { badge.textContent = hasData ? '✓ Saisi' : '⚠ Non saisi'; badge.className = `status-badge ${hasData ? 'complete' : 'missing'}`; }
+  }
+}
+
+// ENREGISTREMENT (ne bloque pas si des distributeurs sont vides)
+window.saveCompleteReleve = async function() {
+  const dateReleve = document.getElementById('releveDate')?.value;
+  if (!dateReleve) { toast('Sélectionnez une date', true); return; }
+  
+  let lignes = [], newDebutElec = {}, newDebutMec = {};
+  let totalVolElec = 0, totalVolMec = 0, totalCA = 0;
+  let nbSaisis = 0;
+  
+  for (const p of DISTRIBUTEURS) {
+    const data = sessionData[p.id];
+    if (!data || (data.finElec === null && data.finMec === null && !data.ecart)) {
+      // Distributeur non saisi - on garde les anciens index
+      newDebutElec[p.id] = debutIndex.elec[p.id];
+      newDebutMec[p.id] = debutIndex.mec[p.id];
+      lignes.push({
+        pompeId: p.id, nom: p.nom, carburant: p.carburant, ligne: p.ligne, face: p.face,
+        debutElec: debutIndex.elec[p.id], debutMec: debutIndex.mec[p.id],
+        finElec: null, finMec: null, volElec: 0, volMec: 0, ecart: '', ca: 0, prix: 0, saisie: false
+      });
+    } else {
+      nbSaisis++;
+      totalVolElec += data.volElec || 0;
+      totalVolMec += data.volMec || 0;
+      totalCA += data.ca || 0;
+      lignes.push({
+        pompeId: p.id, nom: p.nom, carburant: p.carburant, ligne: p.ligne, face: p.face,
+        debutElec: debutIndex.elec[p.id], debutMec: debutIndex.mec[p.id],
+        finElec: data.finElec, finMec: data.finMec,
+        volElec: data.volElec, volMec: data.volMec,
+        ecart: data.ecart, ca: data.ca, prix: data.prix, saisie: true
+      });
+      if (data.finElec !== null) newDebutElec[p.id] = data.finElec;
+      else newDebutElec[p.id] = debutIndex.elec[p.id];
+      if (data.finMec !== null) newDebutMec[p.id] = data.finMec;
+      else newDebutMec[p.id] = debutIndex.mec[p.id];
+    }
+  }
+  
+  await addDoc(collection(db, "releves_journaliers"), {
+    date: new Date(dateReleve).toISOString(),
+    dateStr: dateReleve,
+    totalVolElec, totalVolMec, totalCA,
+    nbSaisis: nbSaisis,
+    nbTotal: 32,
+    details: lignes
+  });
+  
+  debutIndex.elec = newDebutElec;
+  debutIndex.mec = newDebutMec;
+  await setDoc(doc(db, "config", "initialStocksV2"), { elec: debutIndex.elec, mec: debutIndex.mec });
+  
+  sessionData = {};
+  buildPumpsUI();
+  await loadHistory();
+  toast(`✅ Enregistré ! ${nbSaisis}/32 saisis | Élec: ${fmtL(totalVolElec)} | CA: ${fmtDH(totalCA)}`);
+};
+
+// HISTORIQUE
+async function loadHistory() {
+  try {
+    const snap = await getDocs(query(collection(db, "releves_journaliers"), orderBy("date", "desc"), limit(30)));
+    let html = '';
+    snap.forEach(d => {
+      const data = d.data();
+      const date = (data.dateStr || data.date?.split('T')[0] || '—').split('-').reverse().join('/');
+      html += `<div class="history-item"><div class="date">📅 ${date}</div><div><span>Saisis: ${data.nbSaisis || 0}/32</span> | <span>Volume: ${fmt(data.totalVolElec || 0)} L</span> | <span>CA: ${fmtDH(data.totalCA || 0)}</span></div></div>`;
+    });
+    document.getElementById('historyList').innerHTML = html || '<p>Aucun relevé</p>';
+  } catch(e) { console.error(e); }
+}
+
+// EXPORT EXCEL
+window.exportToExcel = function() {
+  const dateReleve = document.getElementById('releveDate')?.value || today();
+  const dateDisp = dateReleve.split('-').reverse().join('/');
+  const wb = XLSX.utils.book_new();
+  const rows = [['STATION MARJANE TANGER MADINA - RELEVÉ JOURNALIER DES DISTRIBUTEURS']];
+  rows.push([`DATE : ${dateDisp}`, '', '', '', '', '']);
+  rows.push(['N° Pompe', 'Carburant', 'Ligne', 'Face', 'DÉBUT Élec', 'FIN Élec', 'Volume Élec', 'DÉBUT Méc', 'FIN Méc', 'Volume Méc', 'Écart (Libre)', 'Prix (DH/L)', 'CA (DH)']);
+  
+  let totalElec = 0, totalMec = 0, totalCA = 0, totalEcart = 0;
+  for (const p of DISTRIBUTEURS) {
+    const data = sessionData[p.id];
+    const volElec = data?.volElec || 0;
+    const volMec = data?.volMec || 0;
+    const ca = data?.ca || 0;
+    totalElec += volElec;
+    totalMec += volMec;
+    totalCA += ca;
+    totalEcart += parseFloat(data?.ecart || 0);
+    totalEcart += parseFloat(data?.ecart || 0);
+    rows.push([
+      p.nom, p.carburant, p.ligne, p.face,
+      debutIndex.elec[p.id] || 0,
+      data?.finElec !== undefined ? data.finElec : '',
+      volElec,
+      debutIndex.mec[p.id] || 0,
+      data?.finMec !== undefined ? data.finMec : '',
+      volMec,
+      data?.ecart || '',
+      data?.prix || '',
+      ca
+    ]);
+  }
+  rows.push(['TOTAUX', '', '', '', '', '', totalElec, '', '', totalMec, totalEcart, '', totalCA]);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, `Relevé ${dateDisp}`);
+  XLSX.writeFile(wb, `Releve_Distributeurs_${dateReleve}.xlsx`);
+  toast('✅ Export Excel téléchargé');
+};
+
+// EXPORT PDF
+window.exportToPDF = function() {
+  const dateReleve = document.getElementById('releveDate')?.value || today();
+  const dateDisp = dateReleve.split('-').reverse().join('/');
+  const now = new Date().toLocaleString('fr-MA');
+  
+  let totalElec = 0, totalMec = 0, totalCA = 0, totalEcart = 0;
+  let rowsHTML = '';
+  for (const p of DISTRIBUTEURS) {
+    const data = sessionData[p.id];
+    const volElec = data?.volElec || 0;
+    const volMec = data?.volMec || 0;
+    const ca = data?.ca || 0;
+    totalElec += volElec;
+    totalMec += volMec;
+    totalCA += ca;
+    totalEcart += parseFloat(data?.ecart || 0);
+    const status = (data && (data.finElec !== null || data.finMec !== null)) ? '✓' : '✗';
+    rowsHTML += `<tr style="background:${status === '✗' ? '#FEF2F2' : 'white'}">
+      <td style="font-weight:600">${p.nom}</td><td>${p.carburant}</td><td>${p.ligne}</td><td>${p.face}</td>
+      <td style="text-align:right">${(debutIndex.elec[p.id] || 0).toLocaleString()}</td>
+      <td style="text-align:right">${data?.finElec !== undefined ? data.finElec.toLocaleString() : '—'}</td>
+      <td style="text-align:right;color:#1B4B9B;font-weight:700">${volElec.toLocaleString()}</td>
+      <td style="text-align:right">${(debutIndex.mec[p.id] || 0).toLocaleString()}</td>
+      <td style="text-align:right">${data?.finMec !== undefined ? data.finMec.toLocaleString() : '—'}</td>
+      <td style="text-align:right;color:#5B2D8E;font-weight:700">${volMec.toLocaleString()}</td>
+      <td>${data?.ecart || '—'}</td>
+      <td style="text-align:right">${(data?.prix || 0).toFixed(2)}</td>
+      <td style="text-align:right;color:#1A7A3C;font-weight:700">${ca.toLocaleString()}</td>
+      <td style="text-align:center">${status}</td>
+    </tr>`;
+  }
+  
+  const html = `<!DOCTYPE html><html><head><script>window.Intl=window.Intl||{};Intl.t=function(s){return(Intl._locale&&Intl._locale[s])||s;};</script><meta charset="UTF-8"><title>Rapport ${dateDisp}</title>
+<meta name="theme-color" content="#1B4B9B">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+  <style>
+    body{font-family:Arial,sans-serif;margin:20px;font-size:11px}
+    h1{color:#1B4B9B;margin:0}
+    .header{text-align:center;margin-bottom:20px;border-bottom:2px solid #1B4B9B;padding-bottom:10px}
+    .infos{display:flex;justify-content:space-between;margin-bottom:15px}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1B4B9B;color:#fff;padding:8px;font-size:10px}
+    td{padding:6px;border:1px solid #ccc}
+    .total{background:#f0f0f0;font-weight:700}
+    .footer{margin-top:20px;text-align:center;font-size:10px;color:#666}
+  </style>
+  </head><body>
+  <div class="header"><h1>MARJANE TANGER MADINA</h1><h3>RELEVÉ JOURNALIER DES DISTRIBUTEURS</h3><p>${dateDisp}</p></div>
+  <div class="infos"><div>Généré le : ${now}</div><div>Agent : ${document.getElementById('hdrUser')?.textContent || 'Agent'}</div></div>
+  <table><th>Pompe</th><th>Carb.</th><th>Ligne</th><th>Face</th><th>DÉBUT Élec</th><th>FIN Élec</th><th>Vol Élec</th><th>DÉBUT Méc</th><th>FIN Méc</th><th>Vol Méc</th><th>Écart</th><th>Prix</th><th>CA (DH)</th><th>État</th></tr>
+  ${rowsHTML}
+  <tr class="total"><td colspan="6"><strong>TOTAUX</strong></td><td><strong>${totalElec.toLocaleString()}</strong></td><td><strong>${totalMec.toLocaleString()}</strong></td><td><strong>${totalEcart.toLocaleString()}</strong></td><td></td><td><strong>${totalCA.toLocaleString()}</strong></td><td></td></tr>
+  </table>
+  <div class="footer">Document généré par Station Manager Pro — ${dateDisp}</div>
+  <script>window.onload=()=>window.print()<\/script>
+  
+<script>
+const i18n = {
+  fr: {pompes:'Pompes', historique:'Historique', dashboard:'Tableau de bord', parametres:'Paramètres', volumeElec:'Volume Élec', volumeMec:'Volume Méc', ca:'CA', ecart:'Écart Cumulé', debut:'DÉBUT', fin:'FIN', enregistrer:'Enregistrer la journée'},
+  ar: {pompes:'المضخات', historique:'السجل', dashboard:'لوحة القيادة', parametres:'الإعدادات', volumeElec:'الحجم الإلكتروني', volumeMec:'الحجم الميكانيكي', ca:'رقم الأعمال', ecart:'مجموع الفارق', debut:'البداية', fin:'النهاية', enregistrer:'حفظ اليوم'}
+};
+let currentLang='fr';
+function toggleLang(){
+  currentLang = currentLang==='fr'?'ar':'fr';
+  document.documentElement.lang = currentLang;
+  document.getElementById('langBtn').textContent = currentLang==='fr'?'AR':'FR';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=i18n[currentLang][el.dataset.i18n]});
+  toast(currentLang==='ar'?'تم التحويل للعربية':'Passé en Français');
+}
+</script>
+
+
+<script>
+// Validation FIN < DEBUT
+document.addEventListener('input', e=>{
+  if(e.target.id && (e.target.id.startsWith('finElec')||e.target.id.startsWith('finMec'))){
+    const pid = e.target.dataset.pid;
+    const type = e.target.id.includes('Elec')?'elec':'mec';
+    const debut = debutIndex[type][pid]||0;
+    const fin = parseFloat(e.target.value)||0;
+    if(fin < debut && fin!==0){
+      e.target.classList.add('error'); e.target.classList.remove('valid');
+      toast('⚠️ FIN < DÉBUT !','err');
+    } else { e.target.classList.remove('error'); e.target.classList.add('valid'); }
+  }
+});
+</script>
+
+
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').then(()=>console.log('SW registered'));
+  });
+}
+</script>
+
+</body></html>`;
+  
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  toast('✅ Rapport PDF préparé - utilisez "Imprimer" pour sauvegarder en PDF');
+};
+
+// DASHBOARD MENSUEL
+async function loadMonthlyDashboard() {
+  const now = new Date();
+  const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+  let moisVolElec = 0, moisVolMec = 0, moisCA = 0;
+  try {
+    const snap = await getDocs(query(collection(db, "releves_journaliers"), orderBy("date", "desc")));
+    snap.forEach(d => {
+      const data = d.data();
+      const dr = new Date(data.date);
+      if (dr >= debutMois) {
+        moisVolElec += data.totalVolElec || 0;
+        moisVolMec += data.totalVolMec || 0;
+        moisCA += data.totalCA || 0;
+      }
+    });
+  } catch(e) {}
+  document.getElementById('detailDashboard').innerHTML = `
+  <div class="dash-grid">
+    <div class="dash-card"><div class="lbl">🔵 Volume Élec mensuel</div><div class="big">${fmtL(moisVolElec)}</div></div>
+    <div class="dash-card"><div class="lbl">🟣 Volume Méc mensuel</div><div class="big">${fmtL(moisVolMec)}</div></div>
+    <div class="dash-card"><div class="lbl">💰 CA mensuel</div><div class="big">${fmtDH(moisCA)}</div></div>
+  </div>`;
+}
+
+// NAVIGATION
+window.switchTab = function(tab, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tab === 'settings') { buildInitialStocksUI(); }
+  if (tab === 'dashboard') { loadMonthlyDashboard(); loadHistory(); }
+  if (tab === 'pumps') { buildPumpsUI(); }
+};
+</script>
+
+<script>
+const i18n = {
+  fr: {pompes:'Pompes', historique:'Historique', dashboard:'Tableau de bord', parametres:'Paramètres', volumeElec:'Volume Élec', volumeMec:'Volume Méc', ca:'CA', ecart:'Écart Cumulé', debut:'DÉBUT', fin:'FIN', enregistrer:'Enregistrer la journée'},
+  ar: {pompes:'المضخات', historique:'السجل', dashboard:'لوحة القيادة', parametres:'الإعدادات', volumeElec:'الحجم الإلكتروني', volumeMec:'الحجم الميكانيكي', ca:'رقم الأعمال', ecart:'مجموع الفارق', debut:'البداية', fin:'النهاية', enregistrer:'حفظ اليوم'}
+};
+let currentLang='fr';
+function toggleLang(){
+  currentLang = currentLang==='fr'?'ar':'fr';
+  document.documentElement.lang = currentLang;
+  document.getElementById('langBtn').textContent = currentLang==='fr'?'AR':'FR';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=i18n[currentLang][el.dataset.i18n]});
+  toast(currentLang==='ar'?'تم التحويل للعربية':'Passé en Français');
+}
+</script>
+
+
+<script>
+// Validation FIN < DEBUT
+document.addEventListener('input', e=>{
+  if(e.target.id && (e.target.id.startsWith('finElec')||e.target.id.startsWith('finMec'))){
+    const pid = e.target.dataset.pid;
+    const type = e.target.id.includes('Elec')?'elec':'mec';
+    const debut = debutIndex[type][pid]||0;
+    const fin = parseFloat(e.target.value)||0;
+    if(fin < debut && fin!==0){
+      e.target.classList.add('error'); e.target.classList.remove('valid');
+      toast('⚠️ FIN < DÉBUT !','err');
+    } else { e.target.classList.remove('error'); e.target.classList.add('valid'); }
+  }
+});
+</script>
+
+
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').then(()=>console.log('SW registered'));
+  });
+}
+</script>
+
+</body>
+</html>
